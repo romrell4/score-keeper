@@ -15,5 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ScoreKeeper"
-include(":androidApp")
-include(":shared")
+include(":app")
