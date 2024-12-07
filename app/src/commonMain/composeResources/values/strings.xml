@@ -1,5 +1,17 @@
 
 <resources>
     <string name="pick_game_app_bar_title">Pick a Game</string>
+    <string name="mormon_bridge_display_name">Mormon Bridge</string>
+
     <string name="configure_game_app_bar_title">Configure Game</string>
+    <string name="mormon_bridge_round_config_title">Round Configuration</string>
+    <string name="mormon_bridge_down_and_up_by_ones">Down and up by ones</string>
+    <string name="mormon_bridge_down_only">Only down by ones</string>
+    <string name="mormon_bridge_odds_down_evens_up">Odds down, evens up</string>
+    <string name="configure_game_cta">Next</string>
+
+    <string name="select_players_app_bar_title">Select Players</string>
+    <string name="select_players_field_label">Player Name</string>
+    <string name="select_players_add_player_cta">Add</string>
+    <string name="select_players_cta">Start Game</string>
 </resources>

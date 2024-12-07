@@ -1,22 +1,23 @@
 package com.romrell4.scorekeeper.ui
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
-import com.romrell4.scorekeeper.data.Game
 import com.romrell4.scorekeeper.ui.screens.ConfigureGameScreen
+import com.romrell4.scorekeeper.ui.screens.ScoreGameScreen
 import com.romrell4.scorekeeper.ui.screens.SelectGameScreen
+import com.romrell4.scorekeeper.ui.screens.SelectPlayersScreen
 import kotlinx.serialization.Serializable
 
 @Composable
 fun App() {
     MyApplicationTheme {
         val navController = rememberNavController()
+        val viewModel = viewModel { GameSetupViewModel() }
 
         NavHost(
             navController = navController,
@@ -25,12 +26,40 @@ fun App() {
         ) {
             composable<Screen.SelectGame> {
                 SelectGameScreen(
-                    onGameTapped = { navController.navigate(Screen.ConfigureGame(it)) }
+                    onGameTapped = {
+                        viewModel.selectedGame = it
+                        // Only go to the configure screen if there are options to configure
+                        if (it.configOptions.isNotEmpty()) {
+                            navController.navigate(Screen.ConfigureGame)
+                        } else {
+                            navController.navigate(Screen.SelectPlayers)
+                        }
+                    }
                 )
             }
             composable<Screen.ConfigureGame> {
-                val route = it.toRoute<Screen.ConfigureGame>()
-                ConfigureGameScreen(game = route.game)
+                ConfigureGameScreen(
+                    game = viewModel.selectedGame,
+                    onCtaTapped = { options ->
+                        viewModel.selectedOptions = options
+                        navController.navigate(Screen.SelectPlayers)
+                    }
+                )
+            }
+            composable<Screen.SelectPlayers> {
+                SelectPlayersScreen(
+                    onCtaTapped = { players ->
+                        viewModel.selectedPlayers = players
+                        navController.navigate(Screen.ScoreGame)
+                    }
+                )
+            }
+            composable<Screen.ScoreGame> {
+                ScoreGameScreen(
+                    game = viewModel.selectedGame,
+                    options = viewModel.selectedOptions,
+                    players = viewModel.selectedPlayers,
+                )
             }
         }
     }
@@ -41,5 +70,11 @@ sealed interface Screen {
     data object SelectGame : Screen
 
     @Serializable
-    data class ConfigureGame(val game: Game) : Screen
+    data object ConfigureGame : Screen
+
+    @Serializable
+    data object SelectPlayers : Screen
+
+    @Serializable
+    data object ScoreGame : Screen
 }
