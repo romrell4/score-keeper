@@ -110,6 +110,7 @@ private fun EnterPlayerField(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         var newPlayerText by remember { mutableStateOf("") }
