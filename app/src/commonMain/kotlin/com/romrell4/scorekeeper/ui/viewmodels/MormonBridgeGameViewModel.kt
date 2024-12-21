@@ -75,6 +75,7 @@ data class MormonBridgeGameViewState(
     data class Scoreboard(
         val headerCells: List<String>,
         val columns: List<List<Cell>>,
+        val editDialogContent: EditDialogViewState?,
     ) {
         val rowCount: Int = columns.first().size
 
@@ -86,6 +87,12 @@ data class MormonBridgeGameViewState(
         )
 
         data class EditableRoundInfo(val playerId: String, val roundIndex: Int)
+
+        data class EditDialogViewState(
+            val subtitle: String,
+            val bid: Int,
+            val madeBid: Boolean,
+        )
     }
 }
 
@@ -100,6 +107,7 @@ class MormonBridgeGameViewModel(
         val currentPhase: Phase,
         val playerRoundResults: Map<String, List<PlayerRoundResult>>,
         val showingBottomSheet: Boolean,
+        val showingScoreboardEditDialogWithData: MormonBridgeGameViewState.Scoreboard.EditableRoundInfo?,
     ) {
         val currentRoundNumCards: Int
             get() = roundStyle.roundCardCounts[currentRoundIndex]
@@ -177,6 +185,15 @@ class MormonBridgeGameViewModel(
                 MormonBridgeGameViewState.Scoreboard(
                     headerCells = players.map { it.name },
                     columns = computeScoreboardColumns(),
+                    editDialogContent = showingScoreboardEditDialogWithData?.let { (playerId, roundIndex) ->
+                        val roundResults = playerRoundResults.getValue(playerId)
+                        val result = roundResults[roundIndex]
+                        MormonBridgeGameViewState.Scoreboard.EditDialogViewState(
+                            subtitle = "Round ${roundIndex + 1} - ${roundStyle.roundCardCounts[roundIndex].let { if (it > 1) "$it cards" else "$it card"}} - ${players.first { it.id == playerId }.name}",
+                            bid = result.bid,
+                            madeBid = result.madeBid,
+                        )
+                    },
                 )
             } else null,
         )
@@ -200,7 +217,7 @@ class MormonBridgeGameViewModel(
                     if (roundIndex == 0) {
                         listOf(
                             MormonBridgeGameViewState.Scoreboard.Cell(
-                                // IF the round is still in progress, just show the bid
+                                // If the round is still in progress, just show the bid
                                 text = if (roundInProgress) result.bid.toString() else result.score.toString(),
                                 // First round is editable, despite not being styled as a "math" row
                                 editableRoundInfo = MormonBridgeGameViewState.Scoreboard.EditableRoundInfo(
@@ -264,6 +281,7 @@ class MormonBridgeGameViewModel(
             currentPhase = Phase.SELECT_DEALER,
             playerRoundResults = players.associate { it.id to listOf() },
             showingBottomSheet = false,
+            showingScoreboardEditDialogWithData = null,
         )
     )
 
@@ -348,9 +366,7 @@ class MormonBridgeGameViewModel(
         stateFlow.update {
             val playerRoundResults = it.playerRoundResults.toMutableMap()
             val playerResults = playerRoundResults.getValue(playerId).toMutableList()
-            playerResults[playerResults.lastIndex] = playerResults.last().let { result ->
-                newResult(result)
-            }
+            playerResults[playerResults.lastIndex] = newResult(playerResults.last())
             playerRoundResults[playerId] = playerResults
             it.copy(playerRoundResults = playerRoundResults)
         }
@@ -363,7 +379,40 @@ class MormonBridgeGameViewModel(
     }
 
     fun onScoreboardCellTapped(playerId: String, roundIndex: Int) {
-        TODO("Not yet implemented")
+        stateFlow.update {
+            it.copy(
+                showingScoreboardEditDialogWithData = MormonBridgeGameViewState.Scoreboard.EditableRoundInfo(
+                    playerId = playerId,
+                    roundIndex = roundIndex,
+                )
+            )
+        }
+    }
+
+    fun onScoreboardEditDialogSaved(bid: Int, madeBid: Boolean) {
+        val showingScoreboardEditDialogWithData =
+            stateFlow.value.showingScoreboardEditDialogWithData ?: return
+        stateFlow.update {
+            it.copy(
+                playerRoundResults = it.playerRoundResults.toMutableMap().apply {
+                    val playerResults =
+                        getValue(showingScoreboardEditDialogWithData.playerId).toMutableList()
+                    playerResults[showingScoreboardEditDialogWithData.roundIndex] =
+                        PlayerRoundResult(
+                            bid = bid,
+                            madeBid = madeBid,
+                        )
+                    this[showingScoreboardEditDialogWithData.playerId] = playerResults
+                },
+                showingScoreboardEditDialogWithData = null
+            )
+        }
+    }
+
+    fun onScoreboardEditDialogDismissed() {
+        stateFlow.update {
+            it.copy(showingScoreboardEditDialogWithData = null)
+        }
     }
 
     data class Factory(val players: List<Player>) : ViewModelProvider.Factory {

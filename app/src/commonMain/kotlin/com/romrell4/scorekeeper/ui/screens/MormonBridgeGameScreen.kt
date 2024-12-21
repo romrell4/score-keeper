@@ -40,6 +40,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -48,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.romrell4.scorekeeper.data.Player
 import com.romrell4.scorekeeper.ui.applyIfNotNull
@@ -147,6 +150,15 @@ fun MormonBridgeGameScreen(
                 dragHandle = {},
             ) {
                 ScoreboardSheetContent(it, onCellTapped = viewModel::onScoreboardCellTapped)
+            }
+
+            it.editDialogContent?.let {
+                Dialog(onDismissRequest = { viewModel.onScoreboardEditDialogDismissed() }) {
+                    ScoreboardEditDialogContent(
+                        viewState = it,
+                        onSaveTapped = viewModel::onScoreboardEditDialogSaved,
+                    )
+                }
             }
         }
     }
@@ -639,6 +651,91 @@ private fun Table(
                             else -> rowContent(columnIndex, rowIndex - 1)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreboardEditDialogContent(
+    viewState: MormonBridgeGameViewState.Scoreboard.EditDialogViewState,
+    onSaveTapped: (bid: Int, madeBid: Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            var bid by remember { mutableIntStateOf(viewState.bid) }
+            var madeBid by remember { mutableStateOf(viewState.madeBid) }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Edit Score",
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Text(viewState.subtitle, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val iconSize = 40.dp
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(iconSize)
+                            .clickable { bid = (bid - 1).coerceAtLeast(0) },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Decrease bid",
+                        )
+                    }
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Bid: $bid",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(iconSize)
+                            .clickable { bid++ },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowUp,
+                            contentDescription = "Increase bid"
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Made Bid?")
+                    IconButton(onClick = { madeBid = !madeBid }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ThumbUp,
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            contentDescription = "This player made their bid",
+                            modifier = Modifier.rotate(if (madeBid) 0f else 180f)
+                        )
+                    }
+                }
+                Text("New round score: ${(bid + 10) * if (madeBid) 1 else -1}")
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { onSaveTapped(bid, madeBid) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text("Save")
                 }
             }
         }
