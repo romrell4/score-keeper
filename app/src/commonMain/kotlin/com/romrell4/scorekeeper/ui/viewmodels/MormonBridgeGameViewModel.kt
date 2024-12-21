@@ -195,22 +195,26 @@ class MormonBridgeGameViewModel(
         private fun computeScoreboardColumns(): List<List<MormonBridgeGameViewState.Scoreboard.Cell>> {
             return playerRoundResults.entries.map { (playerId, roundResults) ->
                 roundResults.mapIndexed { roundIndex, result ->
+                    val roundInProgress =
+                        roundIndex == roundResults.lastIndex && currentPhase <= Phase.SCORE
                     if (roundIndex == 0) {
                         listOf(
                             MormonBridgeGameViewState.Scoreboard.Cell(
-                                text = result.score.toString(),
+                                // IF the round is still in progress, just show the bid
+                                text = if (roundInProgress) result.bid.toString() else result.score.toString(),
                                 // First round is editable, despite not being styled as a "math" row
                                 editableRoundInfo = MormonBridgeGameViewState.Scoreboard.EditableRoundInfo(
                                     playerId = playerId,
                                     roundIndex = roundIndex,
                                 ),
-                            )
+                            ),
                         )
                     } else {
-                        listOf(
+                        listOfNotNull(
                             // Add a math cell before the end result cell
                             MormonBridgeGameViewState.Scoreboard.Cell(
-                                text = result.score.withSign(),
+                                // If the round is still in progress, don't show +/- yet. Just show the bid
+                                text = if (roundInProgress) result.bid.toString() else result.score.withSign(),
                                 editableRoundInfo = MormonBridgeGameViewState.Scoreboard.EditableRoundInfo(
                                     playerId = playerId,
                                     roundIndex = roundIndex,
@@ -222,7 +226,7 @@ class MormonBridgeGameViewModel(
                                 // Take score sum of all the rounds up to this point (including this one)
                                 text = roundResults.take(roundIndex + 1).sumOf { it.score }
                                     .toString()
-                            )
+                            ).takeUnless { roundInProgress }
                         )
                     }
                 }.flatten()
@@ -258,9 +262,7 @@ class MormonBridgeGameViewModel(
             dealerIndex = 0,
             currentRoundIndex = 0,
             currentPhase = Phase.SELECT_DEALER,
-            playerRoundResults = players.associate {
-                it.id to listOf(PlayerRoundResult(bid = 0, madeBid = true))
-            },
+            playerRoundResults = players.associate { it.id to listOf() },
             showingBottomSheet = false,
         )
     )
@@ -287,6 +289,7 @@ class MormonBridgeGameViewModel(
             it.copy(
                 roundStyle = roundStyle,
                 currentPhase = Phase.BID,
+                playerRoundResults = it.playerRoundResults.addNewRound(),
             )
         }
     }
@@ -327,13 +330,15 @@ class MormonBridgeGameViewModel(
         stateFlow.update {
             it.copy(
                 dealerIndex = it.players.indexAfter(it.dealerIndex),
-                playerRoundResults = it.playerRoundResults.mapValues { (_, results) ->
-                    results + PlayerRoundResult(bid = 0, madeBid = true)
-                },
+                playerRoundResults = it.playerRoundResults.addNewRound(),
                 currentRoundIndex = it.currentRoundIndex + 1,
                 currentPhase = Phase.BID,
             )
         }
+    }
+
+    private fun Map<String, List<PlayerRoundResult>>.addNewRound() = mapValues { (_, results) ->
+        results + PlayerRoundResult(bid = 0, madeBid = true)
     }
 
     private fun adjustLastPlayerResult(
