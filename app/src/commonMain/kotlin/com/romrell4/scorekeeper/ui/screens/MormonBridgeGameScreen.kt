@@ -1,274 +1,607 @@
 package com.romrell4.scorekeeper.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.romrell4.scorekeeper.data.Player
-import com.romrell4.scorekeeper.utils.update
+import com.romrell4.scorekeeper.ui.applyIfNotNull
+import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewModel
+import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewState
+import kotlinx.coroutines.delay
 import scorekeeper.app.generated.resources.Res
 import scorekeeper.app.generated.resources.mormon_bridge_display_name
 
-private data class ReadOnlyRow(val cells: List<Int>, val isMathRow: Boolean)
-private data class ActionRow(val cells: List<RoundData>)
-private data class RoundData(val bid: Int = 0, val result: Boolean? = null)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MormonBridgeGameScreen(players: List<Player>) {
-    ScreenScaffold(title = Res.string.mormon_bridge_display_name) { innerPadding ->
+fun MormonBridgeGameScreen(
+    players: List<Player>,
+    viewModel: MormonBridgeGameViewModel = viewModel(
+        factory = MormonBridgeGameViewModel.Factory(players)
+    )
+) {
+    ScreenScaffold(
+        title = Res.string.mormon_bridge_display_name,
+        menuActions = {
+            OutlinedButton(onClick = { viewModel.updateSheetVisibility(true) }) {
+                Text("Scoreboard", color = MaterialTheme.colorScheme.onPrimary)
+            }
+        },
+    ) { innerPadding ->
+        val viewState by viewModel.viewStateFlow.collectAsState()
         Column(
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
+                .padding(innerPadding)
                 .fillMaxSize()
-                .padding(horizontal = 8.dp)
         ) {
-            val displayRows = remember { mutableStateListOf<ReadOnlyRow>() }
-            val actionRow =
-                remember { mutableStateOf(ActionRow(List(players.size) { RoundData() })) }
-            var preRoundPhase by remember { mutableStateOf(true) }
+            Spacer(modifier = Modifier.weight(1f))
+            val shape = RoundedCornerShape(8.dp)
+            Box(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        shape = shape
+                    )
+                    .clip(shape)
+                    .padding(8.dp)
+                    .fillMaxWidth()
+            ) {
+                when (val vs = viewState.mainContent) {
+                    is MormonBridgeGameViewState.SelectDealer -> SelectDealerSection(
+                        viewState = vs,
+                        onDealerSelected = { viewModel.onDealerSelected(it) }
+                    )
 
-            fun updateAction(columnIndex: Int, newValue: RoundData) {
-                actionRow.update {
-                    it.copy(
-                        cells = it.cells.mapIndexed { index, roundData ->
-                            if (index == columnIndex) newValue else roundData
-                        }
+                    is MormonBridgeGameViewState.SelectRoundStyle -> SelectRoundStyle(
+                        viewState = vs,
+                        onCardTapped = viewModel::onRoundStyleSelected
+                    )
+
+                    is MormonBridgeGameViewState.Bidding -> BiddingSection(
+                        viewState = vs,
+                        increaseBidTapped = viewModel::onIncreaseBidTapped,
+                        decreaseBidTapped = viewModel::onDecreaseBidTapped,
+                        startRoundTapped = viewModel::onStartRoundTapped
+                    )
+
+                    is MormonBridgeGameViewState.Scoring -> ScoringSection(
+                        viewState = vs,
+                        onPlayerCardTapped = viewModel::onScoringPlayerCardTapped,
+                        onScoreRoundTapped = viewModel::onScoreRoundTapped,
+                    )
+
+                    is MormonBridgeGameViewState.ShowScores -> ShowScoresSection(
+                        viewState = vs,
+                        onNextRoundTapped = viewModel::onNextRoundTapped,
                     )
                 }
             }
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        viewState.scoreboardSheetContent?.let {
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.updateSheetVisibility(false) },
+                dragHandle = {},
+            ) {
+                ScoreboardSheetContent(it, onCellTapped = viewModel::onScoreboardCellTapped)
+            }
+        }
+    }
+}
 
-            Table(
-                columnCount = players.size,
-                // Add one for the header and one for the footer
-                rowCount = displayRows.size + 2,
-                cellWidth = { 80.dp },
-                headerContent = { columnIndex ->
-                    Row {
+@Composable
+private fun SelectDealerSection(
+    viewState: MormonBridgeGameViewState.SelectDealer,
+    onDealerSelected: (Player) -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Welcome to Mormon Bridge!",
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
+            "Please select the first dealer:",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(count = 2),
+        ) {
+            items(viewState.gridPlayers) { player ->
+                Card(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clickable { onDealerSelected(player) }
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .fillMaxSize()
+                    ) {
                         Text(
-                            text = players[columnIndex].name,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(end = 4.dp),
+                            text = player.name,
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                     }
-                },
-                rowContent = { columnIndex, rowIndex ->
-                    displayRows.getOrNull(rowIndex)?.let { row ->
-                        row.cells.getOrNull(columnIndex)?.let {
-                            if (row.isMathRow) {
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectRoundStyle(
+    viewState: MormonBridgeGameViewState.SelectRoundStyle,
+    onCardTapped: (index: Int) -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Select a scoring option:",
+            style = MaterialTheme.typography.titleLarge
+        )
+        viewState.cards.forEachIndexed { index, card ->
+            Card(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable { onCardTapped(index) }
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = card.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(text = card.subtitle, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BiddingSection(
+    viewState: MormonBridgeGameViewState.Bidding,
+    increaseBidTapped: (playerId: String) -> Unit,
+    decreaseBidTapped: (playerId: String) -> Unit,
+    startRoundTapped: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = viewState.dealerText,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(8.dp)
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = viewState.totalBidText,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(8.dp),
+                color = viewState.bidTextColor,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = viewState.overUnderBidText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontStyle = FontStyle.Italic,
+                color = viewState.bidTextColor,
+            )
+        }
+        val pagerState = rememberPagerState { viewState.cards.size }
+        HorizontalPager(
+            modifier = Modifier.padding(8.dp),
+            state = pagerState,
+            snapPosition = SnapPosition.Center,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+        ) {
+            PlayerBidCard(
+                viewState = viewState.cards[it],
+                onIncreaseTapped = { increaseBidTapped(viewState.cards[it].player.id) },
+                onDecreaseTapped = { decreaseBidTapped(viewState.cards[it].player.id) }
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(pagerState.pageCount) {
+                Box(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .background(
+                            color = if (pagerState.currentPage == it) Color.DarkGray else Color.LightGray,
+                            shape = CircleShape
+                        )
+                        .size(8.dp)
+                )
+            }
+        }
+        Button(
+            onClick = { startRoundTapped() },
+            enabled = viewState.startRoundEnabled,
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        ) {
+            Text("Start Round")
+        }
+    }
+}
+
+@Composable
+private fun PlayerBidCard(
+    viewState: MormonBridgeGameViewState.Bidding.Card,
+    onIncreaseTapped: () -> Unit,
+    onDecreaseTapped: () -> Unit,
+) {
+    Card(modifier = Modifier.padding(8.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    modifier = Modifier.padding(8.dp),
+                    text = viewState.player.name,
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val iconSize = 40.dp
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(iconSize)
+                            .clickable { onDecreaseTapped() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Decrease bid",
+                        )
+                    }
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Bid: ${viewState.bid}",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(iconSize)
+                            .clickable { onIncreaseTapped() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowUp,
+                            contentDescription = "Increase bid"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoringSection(
+    viewState: MormonBridgeGameViewState.Scoring,
+    onPlayerCardTapped: (playerId: String) -> Unit,
+    onScoreRoundTapped: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = "Play the Round!", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "When finished, tap the players who missed their bid:",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(8.dp),
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(count = 2),
+        ) {
+            items(viewState.gridPlayerCards) { card ->
+                Card(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clickable { onPlayerCardTapped(card.player.id) },
+                    colors = CardDefaults.cardColors(containerColor = card.backgroundColor),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .fillMaxSize()
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = card.player.name,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Current score: ${card.score}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (it >= 0) "+$it" else "$it",
-                                    fontWeight = FontWeight.Light,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textDecoration = TextDecoration.Underline,
+                                    text = "Bid: ${card.bid}",
+                                    style = MaterialTheme.typography.titleMedium
                                 )
-                            } else {
-                                Text(
-                                    text = "$it",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                Icon(
+                                    imageVector = Icons.Outlined.ThumbUp,
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    contentDescription = "This player made their bid",
+                                    modifier = Modifier
+                                        .padding(horizontal = 8.dp)
+                                        .rotate(card.thumbRotation),
                                 )
                             }
                         }
                     }
-                },
-                footerContent = { columnIndex ->
-                    actionRow.value.cells.getOrNull(columnIndex)?.let { roundData ->
-                        ActionCell(
-                            roundData = roundData,
-                            preRoundPhase = preRoundPhase,
-                            onDecreaseTapped = {
-                                updateAction(
-                                    columnIndex,
-                                    roundData.copy(bid = maxOf(0, roundData.bid - 1))
-                                )
-                            },
-                            onIncreaseTapped = {
-                                updateAction(columnIndex, roundData.copy(bid = roundData.bid + 1))
-                            },
-                            onThumbsDownTapped = {
-                                updateAction(
-                                    columnIndex,
-                                    roundData.copy(result = if (roundData.result == false) null else false)
-                                )
-                            },
-                            onThumbsUpTapped = {
-                                updateAction(
-                                    columnIndex,
-                                    roundData.copy(result = if (roundData.result == true) null else true)
-                                )
-                            },
-                        )
-                    }
                 }
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = {
-                    if (!preRoundPhase) {
-                        val isFirstRound = displayRows.isEmpty()
-
-                        // Add a row with the results of this previous round
-                        displayRows.add(
-                            ReadOnlyRow(
-                                cells = actionRow.value.cells.map {
-                                    // Add 10 to the bid, and make negative if the result was a missed bid
-                                    ((it.bid + 10) * if (it.result == false) -1 else 1)
-                                },
-                                // If it's the first round, this is the actual beginning score. Otherwise, it's a math row
-                                isMathRow = !isFirstRound
-                            )
-                        )
-
-                        // Add a new read-only row for the totalling (if there was a round already)
-                        if (!isFirstRound) {
-                            displayRows.add(
-                                ReadOnlyRow(
-                                    cells = displayRows[displayRows.lastIndex - 1].cells.zip(
-                                        displayRows[displayRows.lastIndex].cells
-                                    ).map { (last, current) -> last + current },
-                                    isMathRow = false,
-                                )
-                            )
-                        }
-
-                        // Add new bid entries for the next round
-                        actionRow.update { ActionRow(List(players.size) { RoundData() }) }
-                    }
-                    preRoundPhase = !preRoundPhase
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = if (preRoundPhase) "Start Round" else "Next Round"
-                )
             }
+        }
+        Button(
+            onClick = { onScoreRoundTapped() },
+            enabled = viewState.ctaEnabled,
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        ) {
+            Text("Score Round")
         }
     }
 }
 
 @Composable
-private fun ActionCell(
-    roundData: RoundData,
-    preRoundPhase: Boolean,
-    onDecreaseTapped: () -> Unit,
-    onIncreaseTapped: () -> Unit,
-    onThumbsDownTapped: () -> Unit,
-    onThumbsUpTapped: () -> Unit,
+private fun ShowScoresSection(
+    viewState: MormonBridgeGameViewState.ShowScores,
+    onNextRoundTapped: () -> Unit,
 ) {
-    Box(contentAlignment = Alignment.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val iconSize = 40.dp
-            if (preRoundPhase) {
-                Box(
-                    contentAlignment = Alignment.Center,
+    var cards by remember { mutableStateOf(viewState.cards.sortedByDescending { it.previousScore }) }
+    var showingCalculation by remember { mutableStateOf(false) }
+    var showingRoundScoreDelta by remember { mutableStateOf(false) }
+    val roundScoreDeltaAlpha: Float by animateFloatAsState(
+        targetValue = if (showingRoundScoreDelta) 1f else 0f,
+        label = "Round Score Delta Alpha"
+    )
+    var showingNewScore by remember { mutableStateOf(false) }
+    val newScoreAlpha: Float by animateFloatAsState(
+        targetValue = if (showingNewScore) 1f else 0f,
+        label = "New Score Alpha"
+    )
+    var ctaEnabled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewState) {
+        delay(1000)
+        showingCalculation = true
+        delay(500)
+        showingRoundScoreDelta = true
+        delay(1000)
+        showingNewScore = true
+        delay(2000)
+        ctaEnabled = true
+        cards = viewState.cards.sortedByDescending { it.newScore }
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = "Round Complete!", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "Here are the scores ${if (showingNewScore) "after" else "before"} this round:",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(8.dp),
+        )
+        LazyColumn {
+            items(cards, key = { it.player.id }) { card ->
+                Card(
                     modifier = Modifier
-                        .size(iconSize)
-                        .clickable { onDecreaseTapped() }
+                        .padding(8.dp)
+                        .animateItem()
                 ) {
-                    Icon(
-                        Icons.Filled.KeyboardArrowDown,
-                        contentDescription = "Decrease bid",
-                    )
-                }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(iconSize)
-                        .clickable { onIncreaseTapped() },
-                ) {
-                    Icon(
-                        Icons.Filled.KeyboardArrowUp,
-                        contentDescription = "Increase bid"
-                    )
-                }
-            } else {
-                val (positiveIcon, negativeIcon) = when (roundData.result) {
-                    true -> Icons.Filled.ThumbUp to Icons.Outlined.ThumbUp
-                    false -> Icons.Outlined.ThumbUp to Icons.Filled.ThumbUp
-                    null -> Icons.Outlined.ThumbUp to Icons.Outlined.ThumbUp
-                }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(iconSize)
-                        .clickable { onThumbsDownTapped() }
-                ) {
-                    Icon(
-                        negativeIcon,
-                        contentDescription = "Player did not get their bid",
-                        modifier = Modifier.rotate(180f)
-                    )
-                }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(iconSize)
-                        .clickable { onThumbsUpTapped() }
-                ) {
-                    Icon(
-                        positiveIcon,
-                        contentDescription = "Player got their bid"
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = card.player.name,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                            Row {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "Previous Score:",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(text = "", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = "New Score:",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.alpha(newScoreAlpha),
+                                    )
+                                }
+                                // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    modifier = Modifier.sizeIn(minWidth = 36.dp)
+                                ) {
+                                    Text(
+                                        text = "${card.previousScore}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    AnimatedVisibility(showingCalculation) {
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = card.scoreDelta,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                textDecoration = TextDecoration.Underline,
+                                                modifier = Modifier
+                                                    .alpha(roundScoreDeltaAlpha)
+                                            )
+                                            Text(
+                                                text = "${card.newScore}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.alpha(newScoreAlpha),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        Text(roundData.bid.toString())
+        Button(
+            onClick = { onNextRoundTapped() },
+            enabled = ctaEnabled,
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        ) {
+            Text("Next Round")
+        }
     }
 }
 
 @Composable
-fun Table(
+private fun ScoreboardSheetContent(
+    viewState: MormonBridgeGameViewState.Scoreboard,
+    onCellTapped: (playerId: String, roundIndex: Int) -> Unit
+) {
+    Column {
+        Text(
+            text = "Scoreboard",
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        )
+        Table(
+            modifier = Modifier.padding(bottom = 16.dp),
+            columnCount = viewState.headerCells.size,
+            rowCount = viewState.rowCount,
+            cellWidth = 80.dp,
+            headerContent = { columnIndex ->
+                Text(
+                    text = viewState.headerCells[columnIndex],
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            rowContent = { columnIndex, rowIndex ->
+                val cell = viewState.columns[columnIndex][rowIndex]
+                Text(
+                    text = cell.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.applyIfNotNull(cell.editableRoundInfo) {
+                        clickable {
+                            onCellTapped(it.playerId, it.roundIndex)
+                        }
+                    },
+                    fontWeight = cell.fontWeight,
+                    textDecoration = cell.textDecoration,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun Table(
     columnCount: Int,
     rowCount: Int,
-    cellWidth: (index: Int) -> Dp,
+    cellWidth: Dp,
     headerContent: @Composable (columnIndex: Int) -> Unit,
     rowContent: @Composable (columnIndex: Int, rowIndex: Int) -> Unit,
-    footerContent: @Composable (columnIndex: Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    LazyRow(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    LazyRow(modifier = modifier.verticalScroll(rememberScrollState())) {
         items(columnCount) { columnIndex ->
             Column {
-                // Include 0 and data.size for the header and footer
+                // Include 0 for the header
                 (0..rowCount).forEach { rowIndex ->
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .width(cellWidth(columnIndex))
+                            .width(cellWidth)
                     ) {
                         when (rowIndex) {
                             // First row is always the header
                             0 -> headerContent(columnIndex)
-                            // Last row is always the footer
-                            rowCount -> footerContent(columnIndex)
                             // All other rows are content (subtract one for the header)
                             else -> rowContent(columnIndex, rowIndex - 1)
                         }

@@ -21,6 +21,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -50,6 +51,9 @@ fun SelectPlayersScreen(
     ScreenScaffold(title = Res.string.select_players_app_bar_title) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxHeight()) {
             // TODO: Pull saved players from shared preferences
+
+            Text("Enter players in order of play", style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.padding(8.dp))
 
             val selectedPlayers = remember { mutableStateListOf<Player>() }
 
