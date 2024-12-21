@@ -32,17 +32,23 @@ data class MormonBridgeGameViewState(
     data class Bidding(
         val dealerText: String,
         val cards: List<Card>,
-        val totalBidText: String,
-        val overUnderBidText: String,
-        val bidTextColor: Color,
+        val totalBid: TotalBid,
         val startRoundEnabled: Boolean,
     ) : MainContent {
         data class Card(val player: Player, val bid: Int)
     }
 
+    data class TotalBid(
+        val totalText: String,
+        val overUnderText: String,
+        val textColor: Color,
+    )
+
     data class Scoring(
+        val firstPlayerText: String,
+        val totalBid: TotalBid,
         val gridPlayerCards: List<Card>,
-        val ctaEnabled: Boolean
+        val ctaEnabled: Boolean,
     ) : MainContent {
         data class Card(
             val player: Player,
@@ -53,7 +59,11 @@ data class MormonBridgeGameViewState(
         )
     }
 
-    data class ShowScores(val title: String, val cards: List<Card>, val ctaEnabled: Boolean) : MainContent {
+    data class ShowScores(
+        val title: String,
+        val cards: List<Card>,
+        val ctaEnabled: Boolean,
+    ) : MainContent {
         data class Card(
             val player: Player,
             val previousScore: Int,
@@ -109,7 +119,7 @@ class MormonBridgeGameViewModel(
                 Phase.BID -> {
                     val totalBid = playerRoundResults.values.sumOf { it.last().bid }
                     MormonBridgeGameViewState.Bidding(
-                        dealerText = "${players[dealerIndex].name} is dealing",
+                        dealerText = "${players[dealerIndex].name} is dealing ($currentRoundNumCards cards)",
                         cards = players.indexAfter(dealerIndex).let { firstBidderIndex ->
                             (players.drop(firstBidderIndex) + players.take(firstBidderIndex)).map {
                                 MormonBridgeGameViewState.Bidding.Card(
@@ -118,16 +128,14 @@ class MormonBridgeGameViewModel(
                                 )
                             }
                         },
-                        totalBidText = "Total Bid: $totalBid / $currentRoundNumCards",
-                        overUnderBidText = (totalBid - currentRoundNumCards).let { diff ->
-                            "(${if (diff == 0) "on-bid" else "${abs(diff)} ${if (diff > 0) "over" else "under"}"})"
-                        },
-                        bidTextColor = if (totalBid == currentRoundNumCards) Color.Red else Color.Unspecified,
+                        totalBid = totalBid(),
                         startRoundEnabled = totalBid != currentRoundNumCards,
                     )
                 }
 
                 Phase.SCORE -> MormonBridgeGameViewState.Scoring(
+                    firstPlayerText = "${players[dealerIndex].name} leads the first trick",
+                    totalBid = totalBid(),
                     gridPlayerCards = players.map { player ->
                         val roundResults = playerRoundResults.getValue(player.id)
                         val madeBid = roundResults.last().madeBid
@@ -172,6 +180,17 @@ class MormonBridgeGameViewModel(
                 )
             } else null,
         )
+
+        private fun totalBid(): MormonBridgeGameViewState.TotalBid {
+            val totalBid = playerRoundResults.values.sumOf { it.last().bid }
+            return MormonBridgeGameViewState.TotalBid(
+                totalText = "Total Bid: $totalBid / $currentRoundNumCards",
+                overUnderText = (totalBid - currentRoundNumCards).let { diff ->
+                    "(${if (diff == 0) "on-bid" else "${abs(diff)} ${if (diff > 0) "over" else "under"}"})"
+                },
+                textColor = if (totalBid == currentRoundNumCards) Color.Red else Color.Unspecified
+            )
+        }
 
         private fun computeScoreboardColumns(): List<List<MormonBridgeGameViewState.Scoreboard.Cell>> {
             return playerRoundResults.entries.map { (playerId, roundResults) ->

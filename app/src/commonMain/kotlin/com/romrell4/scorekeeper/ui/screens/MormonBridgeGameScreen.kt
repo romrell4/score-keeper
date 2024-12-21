@@ -50,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,7 @@ import com.romrell4.scorekeeper.ui.applyIfNotNull
 import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewModel
 import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import scorekeeper.app.generated.resources.Res
 import scorekeeper.app.generated.resources.mormon_bridge_display_name
 
@@ -242,22 +244,9 @@ private fun BiddingSection(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(8.dp)
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = viewState.totalBidText,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(8.dp),
-                color = viewState.bidTextColor,
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = viewState.overUnderBidText,
-                style = MaterialTheme.typography.bodyMedium,
-                fontStyle = FontStyle.Italic,
-                color = viewState.bidTextColor,
-            )
-        }
+        TotalBidText(viewState.totalBid)
         val pagerState = rememberPagerState { viewState.cards.size }
+        val onLastPage = pagerState.currentPage == pagerState.pageCount - 1
         HorizontalPager(
             modifier = Modifier.padding(8.dp),
             state = pagerState,
@@ -286,17 +275,46 @@ private fun BiddingSection(
                 )
             }
         }
+        val coroutineScope = rememberCoroutineScope()
         Button(
-            onClick = { startRoundTapped() },
-            enabled = viewState.startRoundEnabled,
+            onClick = {
+                if (onLastPage) {
+                    startRoundTapped()
+                } else {
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                    }
+                }
+            },
+            // Only disabled when on the last player and the bid equals the number of cards dealt
+            enabled = !onLastPage || viewState.startRoundEnabled,
             modifier = Modifier
                 .padding(8.dp)
                 .fillMaxWidth()
         ) {
-            Text("Start Round")
+            Text(if (onLastPage) "Start Round" else "Next Bidder")
         }
     }
 }
+
+@Composable
+private fun TotalBidText(viewState: MormonBridgeGameViewState.TotalBid) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = viewState.totalText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = viewState.textColor,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = viewState.overUnderText,
+            style = MaterialTheme.typography.bodyMedium,
+            fontStyle = FontStyle.Italic,
+            color = viewState.textColor,
+        )
+    }
+}
+
 
 @Composable
 private fun PlayerBidCard(
@@ -354,7 +372,14 @@ private fun ScoringSection(
     onScoreRoundTapped: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "Play the Round!", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "Play the Round!",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(8.dp),
+        )
+        Text(text = viewState.firstPlayerText, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(4.dp))
+        TotalBidText(viewState.totalBid)
         Text(
             text = "When finished, tap the players who missed their bid:",
             style = MaterialTheme.typography.titleMedium,
@@ -451,7 +476,7 @@ private fun ShowScoresSection(
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "Round Complete!", style = MaterialTheme.typography.titleLarge)
+        Text(text = viewState.title, style = MaterialTheme.typography.titleLarge)
         Text(
             text = "Here are the scores ${if (showingNewScore) "after" else "before"} this round:",
             style = MaterialTheme.typography.titleMedium,
@@ -480,41 +505,47 @@ private fun ShowScoresSection(
                                 text = card.player.name,
                                 style = MaterialTheme.typography.titleLarge,
                             )
-                            Row {
-                                Column(horizontalAlignment = Alignment.End) {
+                            // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier.sizeIn(minHeight = 64.dp)
+                            ) {
+                                // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
+                                val minScoreWidth = 36.dp
+                                Row {
                                     Text(
                                         text = "Previous Score:",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
-                                    Text(text = "", style = MaterialTheme.typography.bodyMedium)
-                                    Text(
-                                        text = "New Score:",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.alpha(newScoreAlpha),
-                                    )
-                                }
-                                // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
-                                Column(
-                                    horizontalAlignment = Alignment.End,
-                                    modifier = Modifier.sizeIn(minWidth = 36.dp)
-                                ) {
                                     Text(
                                         text = "${card.previousScore}",
                                         style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.End,
+                                        modifier = Modifier.sizeIn(minWidth = minScoreWidth)
                                     )
-                                    AnimatedVisibility(showingCalculation) {
-                                        Column(horizontalAlignment = Alignment.End) {
+                                }
+                                AnimatedVisibility(showingCalculation) {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = card.scoreDelta,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textDecoration = TextDecoration.Underline,
+                                            modifier = Modifier
+                                                .alpha(roundScoreDeltaAlpha)
+                                        )
+                                        Row {
                                             Text(
-                                                text = card.scoreDelta,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                textDecoration = TextDecoration.Underline,
-                                                modifier = Modifier
-                                                    .alpha(roundScoreDeltaAlpha)
+                                                text = "New Score:",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.alpha(newScoreAlpha),
                                             )
                                             Text(
                                                 text = "${card.newScore}",
                                                 style = MaterialTheme.typography.titleMedium,
-                                                modifier = Modifier.alpha(newScoreAlpha),
+                                                textAlign = TextAlign.End,
+                                                modifier = Modifier
+                                                    .alpha(newScoreAlpha)
+                                                    .sizeIn(minWidth = minScoreWidth),
                                             )
                                         }
                                     }
@@ -525,14 +556,16 @@ private fun ShowScoresSection(
                 }
             }
         }
-        Button(
-            onClick = { onNextRoundTapped() },
-            enabled = ctaEnabled,
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth()
-        ) {
-            Text("Next Round")
+        if (viewState.ctaEnabled) {
+            Button(
+                onClick = { onNextRoundTapped() },
+                enabled = ctaEnabled,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .fillMaxWidth()
+            ) {
+                Text("Next Round")
+            }
         }
     }
 }
