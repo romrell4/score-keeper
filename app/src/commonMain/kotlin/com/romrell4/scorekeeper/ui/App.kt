@@ -7,7 +7,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.romrell4.scorekeeper.ui.screens.ConfigureGameScreen
 import com.romrell4.scorekeeper.ui.screens.ScoreGameScreen
 import com.romrell4.scorekeeper.ui.screens.SelectGameScreen
 import com.romrell4.scorekeeper.ui.screens.SelectPlayersScreen
@@ -28,20 +27,6 @@ fun App() {
                 SelectGameScreen(
                     onGameTapped = {
                         viewModel.selectedGame = it
-                        // Only go to the configure screen if there are options to configure
-                        if (it.configOptions.isNotEmpty()) {
-                            navController.navigate(Screen.ConfigureGame)
-                        } else {
-                            navController.navigate(Screen.SelectPlayers)
-                        }
-                    }
-                )
-            }
-            composable<Screen.ConfigureGame> {
-                ConfigureGameScreen(
-                    game = viewModel.selectedGame,
-                    onCtaTapped = { options ->
-                        viewModel.selectedOptions = options
                         navController.navigate(Screen.SelectPlayers)
                     }
                 )
@@ -57,7 +42,6 @@ fun App() {
             composable<Screen.ScoreGame> {
                 ScoreGameScreen(
                     game = viewModel.selectedGame,
-                    options = viewModel.selectedOptions,
                     players = viewModel.selectedPlayers,
                 )
             }

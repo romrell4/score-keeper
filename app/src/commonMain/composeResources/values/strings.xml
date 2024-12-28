@@ -2,6 +2,7 @@
 <resources>
     <string name="pick_game_app_bar_title">Pick a Game</string>
     <string name="mormon_bridge_display_name">Mormon Bridge</string>
+    <string name="rook_display_name">Rook</string>
 
     <string name="configure_game_app_bar_title">Configure Game</string>
     <string name="mormon_bridge_round_config_title">Round Configuration</string>
