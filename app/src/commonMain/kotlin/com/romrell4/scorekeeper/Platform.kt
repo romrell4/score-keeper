@@ -1,7 +1,7 @@
 package com.romrell4.scorekeeper
 
-interface Platform {
-    val name: String
-}
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
 
-expect fun getPlatform(): Platform
+@Composable
+expect fun getScreenWidth(): Dp

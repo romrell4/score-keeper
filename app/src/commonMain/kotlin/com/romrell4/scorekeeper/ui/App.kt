@@ -33,6 +33,7 @@ fun App() {
             }
             composable<Screen.SelectPlayers> {
                 SelectPlayersScreen(
+                    game = viewModel.selectedGame,
                     onCtaTapped = { players ->
                         viewModel.selectedPlayers = players
                         navController.navigate(Screen.ScoreGame)
@@ -52,9 +53,6 @@ fun App() {
 sealed interface Screen {
     @Serializable
     data object SelectGame : Screen
-
-    @Serializable
-    data object ConfigureGame : Screen
 
     @Serializable
     data object SelectPlayers : Screen

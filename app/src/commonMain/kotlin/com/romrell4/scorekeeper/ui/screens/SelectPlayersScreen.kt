@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.romrell4.scorekeeper.data.Game
 import com.romrell4.scorekeeper.data.Player
 import org.jetbrains.compose.resources.stringResource
 import scorekeeper.app.generated.resources.Res
@@ -46,6 +47,7 @@ import scorekeeper.app.generated.resources.select_players_field_label
 
 @Composable
 fun SelectPlayersScreen(
+    game: Game,
     onCtaTapped: (List<Player>) -> Unit
 ) {
     ScreenScaffold(title = Res.string.select_players_app_bar_title) { innerPadding ->
@@ -98,7 +100,7 @@ fun SelectPlayersScreen(
             Button(
                 onClick = { onCtaTapped(selectedPlayers) },
                 modifier = Modifier.fillMaxWidth().imePadding(),
-                enabled = selectedPlayers.isNotEmpty(),
+                enabled = selectedPlayers.size in game.allowedPlayerCounts,
             ) {
                 Text(stringResource(Res.string.select_players_cta))
             }

@@ -20,23 +20,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,12 +59,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.romrell4.scorekeeper.data.Player
+import com.romrell4.scorekeeper.getScreenWidth
 import com.romrell4.scorekeeper.ui.applyIfNotNull
+import com.romrell4.scorekeeper.ui.shared.CenteredCard
+import com.romrell4.scorekeeper.ui.shared.RoundBorderedBox
+import com.romrell4.scorekeeper.ui.shared.Table
 import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewModel
 import com.romrell4.scorekeeper.ui.viewmodels.MormonBridgeGameViewState
 import kotlinx.coroutines.delay
@@ -99,19 +99,7 @@ fun MormonBridgeGameScreen(
                 .fillMaxSize()
         ) {
             Spacer(modifier = Modifier.weight(1f))
-            val shape = RoundedCornerShape(8.dp)
-            Box(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        shape = shape
-                    )
-                    .clip(shape)
-                    .padding(8.dp)
-                    .fillMaxWidth()
-            ) {
+            RoundBorderedBox {
                 when (val vs = viewState.mainContent) {
                     is MormonBridgeGameViewState.SelectDealer -> SelectDealerSection(
                         viewState = vs,
@@ -185,22 +173,11 @@ private fun SelectDealerSection(
             columns = GridCells.Fixed(count = 2),
         ) {
             items(viewState.gridPlayers) { player ->
-                Card(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .clickable { onDealerSelected(player) }
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxSize()
-                    ) {
-                        Text(
-                            text = player.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
+                CenteredCard(modifier = Modifier.clickable { onDealerSelected(player) }) {
+                    Text(
+                        text = player.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
             }
         }
@@ -218,25 +195,16 @@ private fun SelectRoundStyle(
             style = MaterialTheme.typography.titleLarge
         )
         viewState.cards.forEachIndexed { index, card ->
-            Card(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .clickable { onCardTapped(index) }
+            CenteredCard(
+                modifier = Modifier.clickable { onCardTapped(index) }
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .fillMaxWidth()
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = card.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(text = card.subtitle, style = MaterialTheme.typography.bodySmall)
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = card.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(text = card.subtitle, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -334,43 +302,41 @@ private fun PlayerBidCard(
     onIncreaseTapped: () -> Unit,
     onDecreaseTapped: () -> Unit,
 ) {
-    Card(modifier = Modifier.padding(8.dp)) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    CenteredCard {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                modifier = Modifier.padding(8.dp),
+                text = viewState.player.name,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val iconSize = 40.dp
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(iconSize)
+                        .clickable { onDecreaseTapped() },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Decrease bid",
+                    )
+                }
                 Text(
                     modifier = Modifier.padding(8.dp),
-                    text = viewState.player.name,
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "Bid: ${viewState.bid}",
+                    style = MaterialTheme.typography.bodyLarge,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val iconSize = 40.dp
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .clickable { onDecreaseTapped() },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Decrease bid",
-                        )
-                    }
-                    Text(
-                        modifier = Modifier.padding(8.dp),
-                        text = "Bid: ${viewState.bid}",
-                        style = MaterialTheme.typography.bodyLarge,
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(iconSize)
+                        .clickable { onIncreaseTapped() },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowUp,
+                        contentDescription = "Increase bid"
                     )
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .clickable { onIncreaseTapped() },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowUp,
-                            contentDescription = "Increase bid"
-                        )
-                    }
                 }
             }
         }
@@ -402,43 +368,34 @@ private fun ScoringSection(
             columns = GridCells.Fixed(count = 2),
         ) {
             items(viewState.gridPlayerCards) { card ->
-                Card(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .clickable { onPlayerCardTapped(card.player.id) },
-                    colors = CardDefaults.cardColors(containerColor = card.backgroundColor),
+                CenteredCard(
+                    modifier = Modifier.clickable { onPlayerCardTapped(card.player.id) },
+                    colors = CardDefaults.cardColors(containerColor = card.backgroundColor)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxSize()
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = card.player.name,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Current score: ${card.score}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = card.player.name,
-                                style = MaterialTheme.typography.titleLarge,
+                                text = "Bid: ${card.bid}",
+                                style = MaterialTheme.typography.titleMedium
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Current score: ${card.score}",
-                                style = MaterialTheme.typography.bodyMedium
+                            Icon(
+                                imageVector = Icons.Outlined.ThumbUp,
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                contentDescription = "This player made their bid",
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .rotate(card.thumbRotation),
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Bid: ${card.bid}",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Icon(
-                                    imageVector = Icons.Outlined.ThumbUp,
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    contentDescription = "This player made their bid",
-                                    modifier = Modifier
-                                        .padding(horizontal = 8.dp)
-                                        .rotate(card.thumbRotation),
-                                )
-                            }
                         }
                     }
                 }
@@ -497,69 +454,60 @@ private fun ShowScoresSection(
         )
         LazyColumn {
             items(cards, key = { it.player.id }) { card ->
-                Card(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .animateItem()
+                CenteredCard(
+                    modifier = Modifier.animateItem()
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxWidth()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
+                        Text(
+                            text = card.player.name,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            modifier = Modifier.sizeIn(minHeight = 64.dp)
                         ) {
-                            Text(
-                                text = card.player.name,
-                                style = MaterialTheme.typography.titleLarge,
-                            )
                             // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                                modifier = Modifier.sizeIn(minHeight = 64.dp)
-                            ) {
-                                // Min width helps account for the not-yet visible scores (so that it doesn't look as glitchy)
-                                val minScoreWidth = 36.dp
-                                Row {
+                            val minScoreWidth = 36.dp
+                            Row {
+                                Text(
+                                    text = "Previous Score:",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "${card.previousScore}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.sizeIn(minWidth = minScoreWidth)
+                                )
+                            }
+                            AnimatedVisibility(showingCalculation) {
+                                Column(horizontalAlignment = Alignment.End) {
                                     Text(
-                                        text = "Previous Score:",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        text = "${card.previousScore}",
+                                        text = card.scoreDelta,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        textAlign = TextAlign.End,
-                                        modifier = Modifier.sizeIn(minWidth = minScoreWidth)
+                                        textDecoration = TextDecoration.Underline,
+                                        modifier = Modifier
+                                            .alpha(roundScoreDeltaAlpha)
                                     )
-                                }
-                                AnimatedVisibility(showingCalculation) {
-                                    Column(horizontalAlignment = Alignment.End) {
+                                    Row {
                                         Text(
-                                            text = card.scoreDelta,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            textDecoration = TextDecoration.Underline,
-                                            modifier = Modifier
-                                                .alpha(roundScoreDeltaAlpha)
+                                            text = "New Score:",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.alpha(newScoreAlpha),
                                         )
-                                        Row {
-                                            Text(
-                                                text = "New Score:",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                modifier = Modifier.alpha(newScoreAlpha),
-                                            )
-                                            Text(
-                                                text = "${card.newScore}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                textAlign = TextAlign.End,
-                                                modifier = Modifier
-                                                    .alpha(newScoreAlpha)
-                                                    .sizeIn(minWidth = minScoreWidth),
-                                            )
-                                        }
+                                        Text(
+                                            text = "${card.newScore}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            textAlign = TextAlign.End,
+                                            modifier = Modifier
+                                                .alpha(newScoreAlpha)
+                                                .sizeIn(minWidth = minScoreWidth),
+                                        )
                                     }
                                 }
                             }
@@ -596,11 +544,12 @@ private fun ScoreboardSheetContent(
                 .padding(8.dp)
                 .fillMaxWidth()
         )
+        val screenWidth = getScreenWidth()
         Table(
             modifier = Modifier.padding(bottom = 16.dp),
             columnCount = viewState.headerCells.size,
             rowCount = viewState.rowCount,
-            cellWidth = 80.dp,
+            cellWidth = { max(80.dp, screenWidth / viewState.headerCells.size) },
             headerContent = { columnIndex ->
                 Text(
                     text = viewState.headerCells[columnIndex],
@@ -626,117 +575,73 @@ private fun ScoreboardSheetContent(
 }
 
 @Composable
-private fun Table(
-    columnCount: Int,
-    rowCount: Int,
-    cellWidth: Dp,
-    headerContent: @Composable (columnIndex: Int) -> Unit,
-    rowContent: @Composable (columnIndex: Int, rowIndex: Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(modifier = modifier.verticalScroll(rememberScrollState())) {
-        items(columnCount) { columnIndex ->
-            Column {
-                // Include 0 for the header
-                (0..rowCount).forEach { rowIndex ->
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .width(cellWidth)
-                    ) {
-                        when (rowIndex) {
-                            // First row is always the header
-                            0 -> headerContent(columnIndex)
-                            // All other rows are content (subtract one for the header)
-                            else -> rowContent(columnIndex, rowIndex - 1)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun ScoreboardEditDialogContent(
     viewState: MormonBridgeGameViewState.Scoreboard.EditDialogViewState,
     onSaveTapped: (bid: Int, madeBid: Boolean) -> Unit,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(16.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center
+    CenteredCard(shape = RoundedCornerShape(16.dp)) {
+        var bid by remember { mutableIntStateOf(viewState.bid) }
+        var madeBid by remember { mutableStateOf(viewState.madeBid) }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            var bid by remember { mutableIntStateOf(viewState.bid) }
-            var madeBid by remember { mutableStateOf(viewState.madeBid) }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Edit Score",
-                    style = MaterialTheme.typography.titleLarge,
-                    textAlign = TextAlign.Center,
-                )
-                Text(viewState.subtitle, style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val iconSize = 40.dp
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .clickable { bid = (bid - 1).coerceAtLeast(0) },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Decrease bid",
-                        )
-                    }
-                    Text(
-                        modifier = Modifier.padding(8.dp),
-                        text = "Bid: $bid",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .clickable { bid++ },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowUp,
-                            contentDescription = "Increase bid"
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Made Bid?")
-                    IconButton(onClick = { madeBid = !madeBid }) {
-                        Icon(
-                            imageVector = Icons.Outlined.ThumbUp,
-                            tint = MaterialTheme.colorScheme.onBackground,
-                            contentDescription = "This player made their bid",
-                            modifier = Modifier.rotate(if (madeBid) 0f else 180f)
-                        )
-                    }
-                }
-                Text("New round score: ${(bid + 10) * if (madeBid) 1 else -1}")
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { onSaveTapped(bid, madeBid) },
+            Text(
+                text = "Edit Score",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Text(viewState.subtitle, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val iconSize = 40.dp
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .size(iconSize)
+                        .clickable { bid = (bid - 1).coerceAtLeast(0) },
                 ) {
-                    Text("Save")
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Decrease bid",
+                    )
                 }
+                Text(
+                    modifier = Modifier.padding(8.dp),
+                    text = "Bid: $bid",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(iconSize)
+                        .clickable { bid++ },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowUp,
+                        contentDescription = "Increase bid"
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Made Bid?")
+                IconButton(onClick = { madeBid = !madeBid }) {
+                    Icon(
+                        imageVector = Icons.Outlined.ThumbUp,
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        contentDescription = "This player made their bid",
+                        modifier = Modifier.rotate(if (madeBid) 0f else 180f)
+                    )
+                }
+            }
+            Text("New round score: ${(bid + 10) * if (madeBid) 1 else -1}")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { onSaveTapped(bid, madeBid) },
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                Text("Save")
             }
         }
     }

@@ -1,9 +1,14 @@
 package com.romrell4.scorekeeper
 
-import platform.UIKit.UIDevice
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import platform.UIKit.UIScreen
 
-class IOSPlatform: Platform {
-    override val name: String = UIDevice.currentDevice.systemName() + " " + UIDevice.currentDevice.systemVersion
-}
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+actual fun getScreenWidth(): Dp = LocalWindowInfo.current.containerSize.width.pxToPoint().dp
 
-actual fun getPlatform(): Platform = IOSPlatform()
+private fun Int.pxToPoint(): Double = this.toDouble() / UIScreen.mainScreen.scale

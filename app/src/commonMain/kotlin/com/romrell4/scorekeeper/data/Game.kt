@@ -7,7 +7,7 @@ import scorekeeper.app.generated.resources.mormon_bridge_display_name
 import scorekeeper.app.generated.resources.rook_display_name
 
 @Serializable
-enum class Game(val displayValue: StringResource) {
-    MORMON_BRIDGE(Res.string.mormon_bridge_display_name),
-    ROOK(Res.string.rook_display_name),
+enum class Game(val displayValue: StringResource, val allowedPlayerCounts: IntRange) {
+    MORMON_BRIDGE(Res.string.mormon_bridge_display_name, 2..8),
+    ROOK(Res.string.rook_display_name, 4..4),
 }

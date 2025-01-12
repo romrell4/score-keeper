@@ -21,3 +21,10 @@ fun Int.withSign(): String {
         this.toString()
     }
 }
+
+/**
+ * Fills [value] in between each element of the List
+ */
+fun <T> List<T>.fillWith(value: T): List<T> {
+    return flatMap { listOf(it, value) }.dropLast(1)
+}
