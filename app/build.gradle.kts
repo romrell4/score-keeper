@@ -53,7 +53,7 @@ android {
         applicationId = "com.romrell4.scorekeeper"
         minSdk = 28
         targetSdk = 34
-        versionCode = 3
+        versionCode = 4
         versionName = "1.0"
     }
     buildFeatures {
